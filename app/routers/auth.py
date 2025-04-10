@@ -1,33 +1,35 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response
+
 from app.database import *
-from app.schema import *
+from app.schemas.auth import *
 from app.models import User
-from app.routers.utils import hash_password, verify_password, create_access_token
+from app.utils import *
+from app.dependencies import *
 
 router = APIRouter()
 
 
 @router.post('/registration', response_model=AuthRegistrationResponse)
-async def registration(db: db_dep, user: AuthRegistration):
-    # Email tekshirish
-    if db.query(User).filter(User.email == user.email).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Bu email allaqachon ro'yxatdan o'tgan."
-        )
+async def registration(
+        db: db_dep,
+        user: AuthRegistration
+):
+    is_first_user = db.query(User).count() == 0
 
-    # Username tekshirish
-    if db.query(User).filter(User.username == user.username).first():
+    is_user_exists = db.query(User).filter(User.email == user.email).first()
+    if is_user_exists:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Bu username allaqachon band."
+            status_code=400,
+            detail="User with this email already exists."
         )
 
     db_user = User(
-        username=user.username,
-        hashed_password=hash_password(user.password),
         email=user.email,
-        role='user'
+        hashed_password=hash_password(user.password),
+        username=user.email.split("@")[0],
+        is_active=True,
+        is_staff=is_first_user,
+        is_superuser=is_first_user
     )
 
     db.add(db_user)
@@ -37,29 +39,26 @@ async def registration(db: db_dep, user: AuthRegistration):
     return db_user
 
 
-
 @router.post('/login')
 async def login(
         db: db_dep,
         user: AuthLogin
 ):
-    db_user = db.query(User).filter(User.username == user.username).first()
-    if db_user is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid username or password."
-        )
+    db_user = db.query(User).filter(User.email == user.email).first()
+    is_correct = verify_password(user.password, db_user.hashed_password) if db_user else False
 
-    is_correct = verify_password(user.password, db_user.hashed_password)  # To'g'ri: hashed_password
-
-    if not is_correct:
+    if not db_user or not is_correct:
         raise HTTPException(
             status_code=401,
             detail="Invalid password or username."
         )
 
-    access_token = create_access_token(user.model_dump())
+    user_dict = user.model_dump()
+
+    access_token = create_access_token(user_dict)
+    refresh_token = create_access_token(user_dict, REFRESH_TOKEN_EXPIRE_MINUTES)
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "Bearer"
     }
