@@ -1,22 +1,23 @@
 from fastapi import APIRouter, HTTPException, Response
 
 from app.database import *
-from app.schemas.auth import *
+from app.schemas.authschema import *
 from app.models import User
-from app.utils import *
+from app.utils.auth import *
 from app.dependencies import *
 
-router = APIRouter()
+router = APIRouter(tags=["Auth"])
 
 
 @router.post('/registration', response_model=AuthRegistrationResponse)
 async def registration(
         db: db_dep,
-        user: AuthRegistration
+        user: AuthRegistrationRequest
 ):
     is_first_user = db.query(User).count() == 0
 
     is_user_exists = db.query(User).filter(User.email == user.email).first()
+
     if is_user_exists:
         raise HTTPException(
             status_code=400,

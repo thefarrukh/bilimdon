@@ -20,3 +20,5 @@ user = UserSchema(**dummy_data)
 user_dict = user.model_dump()
 user_dict['is_user'] = True
 print(user_dict)
+
+
