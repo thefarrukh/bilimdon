@@ -4,7 +4,7 @@ from datetime import datetime
 class GameRequest(BaseModel):
     title: str
     description: str
-    score: int
+    # score: int
     owner_id: int
     topic_id: int
     start_time: datetime
@@ -14,7 +14,7 @@ class GameResponse(BaseModel):
     id: int
     title: str
     description: str
-    score: int
+    # score: int
     owner_id: int
     topic_id: int
     start_time: datetime
@@ -24,6 +24,6 @@ class GameResponse(BaseModel):
 class GameUpdateRequest(BaseModel):
     title: str
     description: str
-    score: int
+    # score: int
     start_time: datetime
     end_time: datetime

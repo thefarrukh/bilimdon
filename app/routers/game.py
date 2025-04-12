@@ -41,7 +41,7 @@ async def update_question(game_id: int, db: db_dep, request: GameUpdateRequest):
 
     game_model.title = request.title
     game_model.description = request.description
-    game_model.score = request.score
+    # game_model.score = request.score
     # game_model.owner_id = game_model.owner_id
     # game_model.topic_id = game_model.topic_id
     game_model.start_time = request.start_time

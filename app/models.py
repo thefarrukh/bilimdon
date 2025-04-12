@@ -40,7 +40,7 @@ class Game(Base):
     title: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(String(1000))
     topic_id: Mapped[int] = mapped_column(Integer, ForeignKey("topics.id"))
-    score: Mapped[int] = mapped_column(Integer, default=0)
+    # score: Mapped[int] = mapped_column(Integer, default=0)
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
@@ -54,6 +54,7 @@ class GameQuestion(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     game_id: Mapped[int] = mapped_column(Integer, ForeignKey("games.id"))
     question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questions.id"))
+    score: Mapped[int] = mapped_column(Integer, default=0)
 
     question: Mapped["Question"] = relationship("Question", back_populates="games")
     game: Mapped["Game"] = relationship("Game", back_populates="questions")
