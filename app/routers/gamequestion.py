@@ -31,10 +31,16 @@ async def create_game_question(db: db_dep, request: GameQuestionRequest):
         GameQuestion.question_id == request.question_id
     ).first()
 
-    if game_question:
-        raise HTTPException(status_code=400, detail='Game already exist')
+    # if GameQuestion.game_id == request.game_id and GameQuestion.question_id == request.question_id and GameQuestion.id == request.id:
+    #     raise HTTPException(status_code=400, detail='Game already exist')
 
-    new_game_question = GameQuestion(**request.dict())
+    if GameQuestion.game_id != request.game_id:
+        raise HTTPException(status_code=404, detail='Your game_id is not exist')
+
+    if GameQuestion.question_id != request.question_id:
+        raise HTTPException(status_code=404, detail="Your question_id not exist")
+
+    new_game_question = GameQuestion(**request.model_dump())
 
     db.add(new_game_question)
     db.commit()

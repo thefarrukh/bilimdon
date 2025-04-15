@@ -54,10 +54,16 @@ async def login(
             detail="Invalid password or username."
         )
 
-    user_dict = user.model_dump()
+    # Token uchun kerakli ma’lumotlarni yig‘amiz
+    token_data = {
+        "username": db_user.username,
+        "email": db_user.email,
+        "role": "admin" if db_user.is_superuser else "user"  # 👉 rolni aniqlaymiz
+    }
 
-    access_token = create_access_token(user_dict)
-    refresh_token = create_access_token(user_dict, REFRESH_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(token_data)
+    refresh_token = create_access_token(token_data, REFRESH_TOKEN_EXPIRE_MINUTES)
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
