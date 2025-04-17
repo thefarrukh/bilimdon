@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from app.models import *
-from app.database import db_dep
+from app.dependencies import db_dep
 from app.schemas.gamequestion import GameQuestionRequest, GameQuestionResponse, GameQuestionUpdate
 
 router = APIRouter(

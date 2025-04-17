@@ -1,7 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, HTTPException
-from app.database import db_dep
+from app.dependencies import db_dep
 from app.schemas.participationschame import ParticipationRequest, ParticipationResponse
 from app.models import Participation, Game, User
 

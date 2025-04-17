@@ -2,7 +2,6 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 from sqlalchemy  import create_engine
 from typing import Annotated
 from fastapi import Depends
-from app.dependencies import get_db
 
 from dotenv import load_dotenv
 import os
@@ -23,6 +22,3 @@ SessionLocal = sessionmaker(bind=engine)
 
 class Base(DeclarativeBase):
     pass
-
-
-db_dep = Annotated[Session, Depends(get_db)]

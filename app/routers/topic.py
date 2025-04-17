@@ -3,7 +3,7 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException
 from app.models import Topic
-from app.database import db_dep
+from app.dependencies import db_dep
 from app.schemas.topicsschema import *
 
 router = APIRouter(tags=["Topic"])

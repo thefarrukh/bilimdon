@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 from app.schemas.gameschema import *
 from app.models import Game, User, Topic
-from app.database import db_dep
+from app.dependencies import db_dep
 
 router = APIRouter(
     tags=['Game']

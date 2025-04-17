@@ -54,11 +54,10 @@ async def login(
             detail="Invalid password or username."
         )
 
-    # Token uchun kerakli ma’lumotlarni yig‘amiz
     token_data = {
         "username": db_user.username,
         "email": db_user.email,
-        "role": "admin" if db_user.is_superuser else "user"  # 👉 rolni aniqlaymiz
+        "role": "admin" if db_user.is_superuser else "user"
     }
 
     access_token = create_access_token(token_data)

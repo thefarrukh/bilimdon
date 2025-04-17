@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from starlette import status
-from app.database import *
+from app.dependencies import *
 from app.models import Question
 from app.schemas.questionschema import *
 
