@@ -3,21 +3,20 @@ from fastapi import APIRouter, HTTPException, Response
 from app.database import *
 from app.schemas.authschema import *
 from app.models import User
-from app.utils.auth import *
+from app.utils import *
 from app.dependencies import *
 
-router = APIRouter(tags=["Auth"])
+router = APIRouter()
 
 
 @router.post('/registration', response_model=AuthRegistrationResponse)
 async def registration(
         db: db_dep,
-        user: AuthRegistrationRequest
+        user: AuthRegistration
 ):
     is_first_user = db.query(User).count() == 0
 
     is_user_exists = db.query(User).filter(User.email == user.email).first()
-
     if is_user_exists:
         raise HTTPException(
             status_code=400,
@@ -54,17 +53,17 @@ async def login(
             detail="Invalid password or username."
         )
 
-    token_data = {
-        "username": db_user.username,
-        "email": db_user.email,
-        "role": "admin" if db_user.is_superuser else "user"
-    }
+    user_dict = user.model_dump()
 
-    access_token = create_access_token(token_data)
-    refresh_token = create_access_token(token_data, REFRESH_TOKEN_EXPIRE_MINUTES)
-
+    access_token = create_access_token(user_dict)
+    refresh_token = create_access_token(user_dict, REFRESH_TOKEN_EXPIRE_MINUTES)
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "Bearer"
     }
+
+
+@router.get("/test")
+async def test():
+    return {"Hello": "World"}

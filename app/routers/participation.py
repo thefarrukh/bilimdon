@@ -1,76 +1,76 @@
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException
 
-from fastapi import APIRouter, HTTPException
-from app.dependencies import db_dep
-from app.schemas.participationschame import ParticipationRequest, ParticipationResponse
-from app.models import Participation, Game, User
+from app.dependencies import db_dep, current_user_dep, admin_user_dep
+from app.schemas import ParticipationResponse, ParticipationCreate, ParticipationUpdate
+from app.models import Participation
 
-router = APIRouter(tags=['Participation'])
+router = APIRouter(prefix="/participations", tags=["participation"])
 
-@router.get('/get_participation', response_model=List[ParticipationResponse])
-async def get_participation(db:db_dep):
+
+@router.get("/", response_model=list[ParticipationResponse])
+async def list_participations(db: db_dep):
     return db.query(Participation).all()
 
 
-@router.get('/get_participation/{id}', response_model=ParticipationResponse)
-async def get_participation(id:int, db:db_dep):
-    participation = db.query(Participation).filter(Participation.id == id).first()
-    if not participation:
-        raise HTTPException(status_code=404, detail='Participation not found')
-    return participation
+@router.get("/{id}/", response_model=ParticipationResponse)
+async def get_participation(
+        db: db_dep,
+        id: int
+):
+    return db.query(Participation).filter(Participation.id == id).first()
 
 
-@router.post('/create_participation', response_model=ParticipationResponse)
-async def create_participation(db:db_dep, request:ParticipationRequest):
-    if not db.query(Game).filter(Game.id == request.game_id).first():
-        raise HTTPException(status_code=404, detail='Your game_id does not exist')
+@router.post("/create/", response_model=ParticipationResponse)
+async def create_participation(
+        db: db_dep,
+        current_user: current_user_dep,
+        participation: ParticipationCreate
+):
+    db_participation = Participation(
+        **participation.model_dump(exclude_unset=True),
+        user_id=current_user.id
+    )
 
-    if not db.query(User).filter(User.id == request.user_id).first():
-        raise HTTPException(status_code=404, detail="Your user_id does not exist")
-
-    participation_model = Participation(**request.model_dump())
-
-    db.add(participation_model)
+    db.add(db_participation)
     db.commit()
-    db.refresh(participation_model)
+    db.refresh(db_participation)
 
-    return participation_model
-
-
-@router.put('/update_participation', response_model=ParticipationResponse)
-async def update_participation(id:int, db:db_dep, request:ParticipationRequest):
-    participation_model = db.query(Participation).filter(Participation.id == id).first()
-
-    if not participation_model:
-        raise HTTPException(status_code=404, detail='Participation not found')
-
-    if not db.query(Game).filter(Game.id != request.game_id).first():
-        raise HTTPException(status_code=404, detail='Your game_id is not exist')
-
-    if not db.query(User).filter(User.id != request.user_id).first():
-        raise HTTPException(status_code=404, detail="Your user_id not exist")
+    return db_participation
 
 
-    participation_model.user_id = request.user_id
-    participation_model.game_id = request.game_id
-    participation_model.start_time = request.start_time
-    participation_model.end_time = request.end_time
-    participation_model.gained_score = request.gained_score
-    participation_model.registered_at = request.registered_at
+# Update
+@router.patch("/{id}/update/", response_model=ParticipationResponse)
+async def update_participation(
+        db: db_dep,
+        current_user: current_user_dep,
+        participation: ParticipationUpdate
+):
+    participation_obj = db.query(Participation).filter(
+        Participation.id == participation.id
+    ).first()
 
-    db.add(participation_model)
+    if not participation_obj:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "Participation with this id is not found."
+            }
+        )
+
+    participation_obj.start_time = participation.start_time if participation.start_time else participation_obj.start_time
+    participation_obj.end_time = participation.end_time if participation.end_time else participation_obj.end_time
+    participation_obj.gained_score = participation.gained_score if participation.gained_score else participation_obj.gained_score
+
     db.commit()
-    db.refresh(participation_model)
+    db.refresh(participation_obj)
 
-    return participation_model
+    return participation_obj
 
-@router.delete('/delete_participation')
-async def delete_participation(id:int, db: db_dep):
-    participation_model = db.query(Participation).filter(Participation.id == id).first()
 
-    if not participation_model:
-        raise HTTPException(status_code=404, detail='Participation not found')
-
-    db.delete(participation_model)
-    db.commit()
-    return {participation_model}
+@router.get("/{id}/submissions/")
+async def participation_submissions(
+        db: db_dep,
+        current_user: current_user_dep,
+        id: int
+):
+    pass

@@ -1,72 +1,95 @@
 from fastapi import APIRouter, HTTPException
-from starlette import status
-from app.dependencies import *
-from app.models import Option
-from app.schemas.optionschema import *
-from app.routers.questions import Question
 
-router = APIRouter(tags=["Options"])
+from app.dependencies import db_dep, current_user_dep
+from app.models import Option, Question
+from app.schemas import OptionCreate, OptionUpdate, OptionResponse
+
+router = APIRouter(prefix="/options", tags=["options"])
 
 
-@router.get('/get_options', status_code=status.HTTP_200_OK)
+@router.get("/", response_model=list[OptionResponse])
 async def get_options(db: db_dep):
     return db.query(Option).all()
 
 
-@router.get('/get_options_by_id/{todo_id}', status_code=status.HTTP_200_OK)
-async def get_options(id:int, db: db_dep):
+@router.get("/{id}", response_model=OptionResponse)
+async def get_option(id: int, db: db_dep):
+    option = db.query(Option).filter(Option.id == id).first()
 
-    option_model = db.query(Option).filter(id == Option.question_id).all()
+    if not option:
+        raise HTTPException(
+            status_code=404,
+            detail="Option not found."
+        )
 
-    if option_model is not None:
-        return option_model
-    raise HTTPException(status_code=404, detail='Todo not found')
-
-
-@router.post('/create_options', status_code=status.HTTP_201_CREATED, response_model=OptionsResponse)
-async def create_options(db: db_dep, request:OptionsRequest):
-
-    options_model = db.query(Question).filter(Question.id == request.question_id).first()
+    return option
 
 
-    if options_model is None:
-        raise HTTPException(status_code=404, detail='Question not found')
+@router.post("/create/", response_model=OptionResponse)
+async def create_option(
+        option: OptionCreate,
+        db: db_dep,
+        current_user: current_user_dep
+):
+    existing_correct_option = db.query(Option).filter(
+        Option.question_id == option.question_id,
+        Option.is_correct == True
+    ).first()
 
-    new_model = Option(**request.model_dump())
+    if existing_correct_option and option.is_correct:
+        raise HTTPException(
+            status_code=400,
+            detail="Question already has a correct option."
+        )
 
-    db.add(new_model)
+    db_option = Option(
+        **option.model_dump()
+    )
+
+    db.add(db_option)
     db.commit()
-    db.refresh(new_model)
+    db.refresh(db_option)
 
-    return new_model
-
-
-@router.put('/update_options/{option_id}', response_model=OptionsResponse)
-async def update_options(option_id: int, db: db_dep, request: OptionsRequest):
-
-    options_model = db.query(Option).filter(option_id == Option.id).first()
-
-    if options_model is None:
-        raise HTTPException(status_code=404, detail='Option not found')
-
-    options_model.title = request.title
-    options_model.is_correct = request.is_correct
-    options_model.question_id = request.question_id
-
-    db.add(options_model)
-    db.commit()
-    db.refresh(options_model)
-
-    return options_model
+    return db_option
 
 
-@router.delete('/delete_options/{todo_id}')
-async def delete_options(db : db_dep, question_id: int):
-    options_model = db.query(Option).filter(question_id == Option.id).first()
-    if options_model is None:
-        raise HTTPException(status_code=404, detail='Option not found')
-    db.query(Option).filter(question_id == Option.id).delete()
+@router.put("/update/{id}", response_model=OptionResponse)
+async def update_option(
+        id: int,
+        option: OptionUpdate,
+        db: db_dep
+):
+    db_option = db.query(Option).filter(Option.id == id).first()
+
+    if not db_option:
+        raise HTTPException(
+            status_code=404,
+            detail="Option not found."
+        )
+
+    db_option.title = option.title if option.title else db_option.title
+    db_option.is_correct = option.is_correct if option.is_correct else db_option.is_correct
 
     db.commit()
+    db.refresh(db_option)
 
-    return options_model
+    return db_option
+
+
+@router.delete("/delete/{id}")
+async def delete_option(id: int, db: db_dep):
+    db_option = db.query(Option).filter(Option.id == id).first()
+
+    if not db_option:
+        raise HTTPException(
+            status_code=404,
+            detail="Option not found."
+        )
+
+    db.delete(db_option)
+    db.commit()
+
+    return {
+        "option_id": id,
+        "message": "Option deleted."
+    }

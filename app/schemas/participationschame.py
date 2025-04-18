@@ -1,20 +1,34 @@
 from pydantic import BaseModel
+
 from datetime import datetime
 
-class ParticipationRequest(BaseModel):
-    user_id: int
-    game_id: int
-    start_time: datetime
-    end_time: datetime
-    gained_score: int
-    registered_at: datetime
+
+class ParticipationUser(BaseModel):
+    id: int
+    username: str
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 class ParticipationResponse(BaseModel):
     id: int
-    user_id: int
+    user: ParticipationUser
     game_id: int
-    start_time: datetime
-    end_time: datetime
+    start_time: datetime | None = None
+    end_time: datetime | None = None
     gained_score: int
     registered_at: datetime
+
+
+class ParticipationCreate(BaseModel):
+    game_id: int
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    gained_score: int | None = None
+
+
+class ParticipationUpdate(BaseModel):
+    id: int
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    gained_score: int | None = None

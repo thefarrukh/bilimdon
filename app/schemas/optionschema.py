@@ -1,15 +1,22 @@
 from pydantic import BaseModel
 
-class OptionsRequest(BaseModel):
-    question_id: int
-    title: str
-    is_correct: bool
+from datetime import datetime
 
-class OptionsResponse(BaseModel):
+
+class OptionResponse(BaseModel):
     id: int
     question_id: int
     title: str
     is_correct: bool
+    created_at: datetime
 
-    class Config:
-        orm_mode = True
+
+class OptionCreate(BaseModel):
+    title: str
+    question_id: int
+    is_correct: bool
+
+
+class OptionUpdate(BaseModel):
+    title: str | None = None
+    is_correct: bool | None = None

@@ -1,55 +1,90 @@
 from fastapi import APIRouter, HTTPException
-from starlette import status
-from app.dependencies import *
+
+from app.dependencies import db_dep, current_user_dep
 from app.models import Question
-from app.schemas.questionschema import *
+from app.schemas import QuestionResponse, QuestionCreate, QuestionUpdate
 
-router = APIRouter(tags=["Questions"])
+router = APIRouter(prefix="/questions", tags=["questions"])
 
 
-@router.get('/get_questions', status_code=status.HTTP_200_OK)
+@router.get("/", response_model=list[QuestionResponse])
 async def get_questions(db: db_dep):
     return db.query(Question).all()
 
 
-@router.post('/create_question', status_code=status.HTTP_201_CREATED, response_model=QuestionResponse)
-async def create_question(db: db_dep, request:QuestionRequest):
-    question_model = Question(**request.model_dump())
+@router.get("/{id}", response_model=QuestionResponse)
+async def get_question(id: int, db: db_dep):
+    question = db.query(Question).filter(Question.id == id).first()
 
-    db.add(question_model)
+    if not question:
+        raise HTTPException(
+            status_code=404,
+            detail="Question not found."
+        )
+
+    return question
+
+
+@router.post("/create/", response_model=QuestionResponse)
+async def create_question(
+        question: QuestionCreate,
+        db: db_dep,
+        current_user: current_user_dep
+):
+    db_question = Question(
+        **question.model_dump(),
+        owner_id=current_user.id
+    )
+
+    db.add(db_question)
     db.commit()
-    db.refresh(question_model)
+    db.refresh(db_question)
 
-    return question_model
-
-
-@router.put('/update_question/{todo_id}', response_model=QuestionResponse)
-async def update_question(todo_id: int, db: db_dep, request: QuestionRequest):
-
-    question_model = db.query(Question).filter(todo_id == Question.id).first()
-
-    if question_model is None:
-        raise HTTPException(status_code=404, detail='Question not found')
-
-    question_model.title = request.title
-    question_model.description = request.description
-    question_model.topic_id = request.topic_id
-    question_model.owner_id = request.owner_id
-
-    db.add(question_model)
-    db.commit()
-    db.refresh(question_model)
-
-    return question_model
+    return db_question
 
 
-@router.delete('/delete_question/{todo_id}')
-async def delete_question(db : db_dep, question_id: int):
-    question_model = db.query(Question).filter(question_id == Question.id).first()
-    if question_model is None:
-        raise HTTPException(status_code=404, detail='Question not found')
-    db.query(Question).filter(question_id == Question.id).delete()
+@router.put("/update/{id}", response_model=QuestionResponse)
+async def update_question(
+        id: int,
+        question: QuestionUpdate,
+        db: db_dep
+):
+    db_question = db.query(Question).filter(Question.id == id).first()
+
+    if not db_question:
+        raise HTTPException(
+            status_code=404,
+            detail="Question not found."
+        )
+
+    db_question.title = question.title if question.title else db_question.title
+    db_question.description = question.description if question.description else db_question.description
+    db_question.topic_id = question.topic_id if question.topic_id else db_question.topic_id
 
     db.commit()
+    db.refresh(db_question)
 
-    return question_model
+    return db_question
+
+
+@router.delete("/delete/{id}")
+async def delete_question(id: int, db: db_dep):
+    db_question = db.query(Question).filter(Question.id == id).first()
+
+    if not db_question:
+        raise HTTPException(
+            status_code=404,
+            detail="Question not found."
+        )
+
+    db.delete(db_question)
+    db.commit()
+
+    return {
+        "question_id": id,
+        "message": "Question deleted."
+    }
+
+# @router.get("{id}/options/", response_model=QuestionWithOptionsResponse)
+# async def get_question_with_options(id: int, db: db_dep):
+#     pass

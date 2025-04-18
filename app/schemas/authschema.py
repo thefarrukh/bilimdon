@@ -1,23 +1,16 @@
 from pydantic import BaseModel, EmailStr
 
-
-class AuthRegistrationRequest(BaseModel):
-    email: str
+class AuthRegistration(BaseModel):
+    email: EmailStr
     password: str
-    username: str
 
 class AuthRegistrationResponse(BaseModel):
     id: int
+    email: EmailStr
     username: str
-    email: str
-    is_active : bool
-    is_staff : bool
-    is_superuser : bool
-
-    class Config:
-        orm_mode = True
-
+    is_staff: bool
+    is_superuser: bool
 
 class AuthLogin(BaseModel):
-    email: EmailStr
+    email: str
     password: str

@@ -1,66 +1,184 @@
-from typing import List
-
 from fastapi import APIRouter, HTTPException
-from app.schemas.gameschema import *
-from app.models import Game, User, Topic
-from app.dependencies import db_dep
 
-router = APIRouter(
-    tags=['Game']
-)
+from datetime import timezone, datetime, timedelta
 
-@router.get('/get_games', response_model=List[GameResponse])
-async def get_info(db: db_dep):
+from app.dependencies import db_dep, current_user_dep, admin_user_dep
+from app.models import Game, Question, GameQuestion
+from app.schemas import GameCreate, GameResponse, GameUpdate, QuestionResponse, GameSelectQuestion
+
+router = APIRouter(prefix="/games", tags=["games"])
+
+
+@router.get("/", response_model=list[GameResponse])
+async def get_games(db: db_dep):
+    return db.query(Game).filter(
+        Game.end_time > datetime.now(timezone.utc)
+    )
+
+
+@router.get("/all/", response_model=list[GameResponse])
+async def get_games(db: db_dep):
     return db.query(Game).all()
 
 
-@router.post('/create_game', response_model=GameResponse)
-async def create_game(db: db_dep, request: GameRequest):
-    game_model = Game(**request.model_dump())
+@router.get("/{id}/", response_model=GameResponse)
+async def get_game(id: int, db: db_dep):
+    game = db.query(Game).filter(Game.id == id).first()
 
-    if not db.query(User).filter(User.id == request.owner_id).first():
-        raise HTTPException(status_code=404, detail="Owner not found")
+    if not game:
+        raise HTTPException(
+            status_code=404,
+            detail="Game not found."
+        )
 
-    if not db.query(Topic).filter(Topic.id == request.topic_id).first():
-        raise HTTPException(status_code=404, detail="Topic not found")
+    return game
 
-    db.add(game_model)
+
+@router.post("/create/", response_model=GameResponse)
+async def create_game(
+        game: GameCreate,
+        db: db_dep,
+        current_user: current_user_dep
+):
+    if game.start_time > game.end_time:
+        raise HTTPException(
+            status_code=400,
+            detail="Start time must be before end time."
+        )
+
+    if game.start_time < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=400,
+            detail="Start time must be in the future."
+        )
+
+    if game.end_time - game.start_time < timedelta(hours=1):
+        raise HTTPException(
+            status_code=400,
+            detail="Game must last at least 1 hour."
+        )
+
+    db_game = Game(
+        **game.model_dump(),
+        owner_id=current_user.id
+    )
+
+    db.add(db_game)
     db.commit()
-    db.refresh(game_model)
+    db.refresh(db_game)
 
-    return game_model
+    return db_game
 
 
-@router.put('/update_game/{game_id}', response_model=GameResponse)
-async def update_question(game_id: int, db: db_dep, request: GameUpdateRequest):
+@router.patch("/update/{id}", response_model=GameResponse)
+async def update_game(
+        id: int,
+        game: GameUpdate,
+        db: db_dep
+):
+    db_game = db.query(Game).filter(Game.id == id).first()
 
-    game_model = db.query(Game).filter(game_id == Game.id).first()
+    if not db_game:
+        raise HTTPException(
+            status_code=404,
+            detail="Game not found."
+        )
 
-    if game_model is None:
-        raise HTTPException(status_code=404, detail='Game not found')
+    # if game.start_time and not game.start_time.tzinfo:
+    #     game.start_time = game.start_time.replace(tzinfo=timezone.utc)
 
-    game_model.title = request.title
-    game_model.description = request.description
-    # game_model.score = request.score
-    # game_model.owner_id = game_model.owner_id
-    # game_model.topic_id = game_model.topic_id
-    game_model.start_time = request.start_time
-    game_model.end_time = request.end_time
+    # is_permissible = db_game.start_time < datetime.now(timezone.utc)
+    # if is_permissible:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="You cannot update this game, as it already started or finished."
+    #     )
 
-    db.add(game_model)
+    db_game.title = game.title if game.title else db_game.title
+    db_game.description = game.description if game.description else db_game.description
+    db_game.end_time = game.end_time if game.end_time else db_game.end_time
+    db_game.topic_id = game.topic_id if game.topic_id else db_game.topic_id
+
     db.commit()
-    db.refresh(game_model)
+    db.refresh(db_game)
 
-    return game_model
+    return db_game
 
 
-@router.delete('/delete_game/{game_id}')
-async def delete_question(db : db_dep, game_id: int):
-    game_model = db.query(Game).filter(game_id == Game.id).first()
-    if game_model is None:
-        raise HTTPException(status_code=404, detail='Game not found')
-    db.query(Game).filter(game_id == Game.id).delete()
+@router.delete("/delete/{id}")
+async def delete_game(
+        id: int,
+        db: db_dep,
+        admin_user: admin_user_dep
+):
+    db_game = db.query(Game).filter(Game.id == id).first()
 
+    if not db_game:
+        raise HTTPException(
+            status_code=404,
+            detail="Game not found."
+        )
+
+    db.delete(db_game)
     db.commit()
 
-    return game_model
+    return {
+        "game_id": id,
+        "message": "Game deleted."
+    }
+
+
+@router.get("/{id}/questions", response_model=list[QuestionResponse])
+async def game_questions(
+        db: db_dep,
+        current_user: current_user_dep,
+        id: int
+):
+    db_game = db.query(Game).filter(Game.id == id).first()
+
+    if not db_game:
+        raise HTTPException(
+            status_code=404,
+            detail="Game not found."
+        )
+
+    db_questions = db.query(GameQuestion).filter(GameQuestion.game_id == id).all()
+
+    if db_questions:
+        return [db.query(Question).filter(Question.id == question.question_id).first() for question in db_questions]
+
+    return []
+
+
+@router.post("/{id}/select-question/", response_model=QuestionResponse)
+async def select_question(
+        db: db_dep,
+        current_user: current_user_dep,
+        request: GameSelectQuestion
+):
+    db_question = db.query(Question).filter(Question.id == request.question_id).first()
+
+    if not db_question:
+        raise HTTPException(
+            status_code=404,
+            detail="Question not found."
+        )
+
+    db_game = db.query(Game).filter(Game.id == request.game_id).first()
+
+    if not db_game:
+        raise HTTPException(
+            status_code=404,
+            detail="Game not found."
+        )
+
+    db_game_question = GameQuestion(
+        game_id=db_game.id,
+        question_id=db_question.id
+    )
+
+    db.add(db_game_question)
+    db.commit()
+    db.refresh(db_game_question)
+
+    return db_question
